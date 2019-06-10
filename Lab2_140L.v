@@ -1,6 +1,7 @@
-// >>>>>>>>>>>>>>>>>>>>>>>>> COPYRIGHT NOTICE <<<<<<<<<<<<<<<<<<<<<<<<<
 // --------------------------------------------------------------------
-// Copyright (c) 2019 by UCSD CSE 140L
+// >>>>>>>>>>>>>>>>>>>>>>>>> Cla_substractYRIGHT NOTICE <<<<<<<<<<<<<<<<<<<<<<<<<
+// --------------------------------------------------------------------
+// Cla_substractyright (c) 2019 by UCSD CSE 140L
 // --------------------------------------------------------------------
 //
 // Permission:
@@ -16,44 +17,48 @@
 //   consistency and functionality through the use of formal
 //   verification methods.  
 //
-// --------------------------------------------------------------------            
-//                     UCSD CSE Department
-//                     9500 Gilman Dr, La Jolla, CA 92093
-//                     U.S.A
+//   git account name: Ailsa98
 //
-// --------------------------------------------------------------------
-
 module Lab2_140L (
-  input wire 	      rst, // reset signal (active high)
-  input wire 	      clk, // global clock	    
-  input 	          bu_rx_data_rdy, // data from the uart ready
-  input [7:0] 	    bu_rx_data, // data from the uart
-  output wire 	    Gl_tx_data_rdy, // data to the alarm display
-  output wire [7:0] Gl_tx_data,     // data to the alarm display
-  output [4:0] 	    L2_led
+  /*
+  input wire Gl_rst,                  // reset signal (active high)
+  input wire clk,                     // global clock
+  input wire Gl_adder_start,          // r1, r2, OP are ready  
+  input wire Gl_subtract,             // subtract (active high)
+  // 1:first digit, 2:second digit
+  input wire [7:0] Gl_r11,             // 8bit number 1_1
+  input wire [7:0] Gl_r12,             // 8bit number 1_2
+  input wire [7:0] Gl_r21,             // 8bit number 2_1
+  input wire [7:0] Gl_r22,             // 8bit number 2_2
+  output wire [7:0] L2_adder_data1,    // 8 bit ascii sum 1
+  output wire [7:0] L2_adder_data2,    // 8 bit ascii sum 2
+  output wire L2_adder_rdy1,           // pulse1
+  output wire L2_adder_rdy2,           // pulse2
+  output wire [7:0] L2_led
+*/
+
+  input wire   rst, // reset signal (active high)
+  input wire   clk,
+  input        bu_rx_data_rdy, // data from the uart is ready
+  input [7:0]  bu_rx_data, // data from the uart
+  output       Gl_tx_data_rdy, // data ready to be sent to UART
+  output [7:0] Gl_tx_data, // data to be sent to UART
+  output [4:0] L2_led
 );
 
-
-  wire Gl_adder_start;          // r1, r2, OP are ready  
-  wire Gl_subtract;             // subtract (active high)
-  wire [7:0] Gl_r11;             // 8bit number 1_1
-  wire [7:0] Gl_r12;             // 8bit number 1_2
-  wire [7:0] Gl_r21;             // 8bit number 2_1
-  wire [7:0] Gl_r22;             // 8bit number 2_2
-  wire [7:0] L2_adder_data1;    // 8 bit ascii sum 1
-  wire [7:0] L2_adder_data2;    // 8 bit ascii sum 2
-  wire L2_adder_rdy;           // pulse1
-
-  wire c0;  // carry-out bit of last digits
-  wire c1;
-  reg rdy2;
-  wire [3:0] add1;  // temp first digit
+wire [3:0] c0;  // carry-out bit of last digits
+wire c1;
+reg rdy2;
+wire [3:0] add1;  // temp first digit
+wire [7:0] L2_adder_data1;
+wire [7:0] L2_adder_data2;      
+wire L2_adder_rdy;
 
 // tell the glue logic when addtion is done
-sigDelay  sig1(L2_adder_rdy, Gl_adder_start, clk, Gl_rst);
+sigDelay  sig(L2_adder_rdy, Gl_adder_start, clk, Gl_rst);
 
 // do the 4-bit addition/substraction for the last 4 bits of the input (last byte)
-fourBitAdderSubstractor fo2(L2_adder_data2[3:0], c0, Gl_r12[3:0], 
+fourBitAdderSubstractor fo2(L2_adder_data2[3:0], c0[0], Gl_r12[3:0], 
   Gl_r22[3:0], Gl_subtract);
 
 // do the 4-bit addition/substraction for the first 4 bits of the input
@@ -62,7 +67,7 @@ fourBitAdderSubstractor fo1(add1, c1, Gl_r11[3:0],
 
 // modify the first byte based on the carry condition
 fourBitAdderSubstractor foc(L2_adder_data1[3:0], L2_led[4], add1, 
-  c0 ? 4'b0001 : 4'b0, Gl_subtract);
+  c0, Gl_subtract);
 
 // change the bits of L2_led to display the result
 assign L2_led[3:0] = L2_adder_data1[3:0];
@@ -71,7 +76,6 @@ assign L2_led[3:0] = L2_adder_data1[3:0];
 // store the ascii value of the sum
 assign L2_adder_data1[7:4] = (L2_led[4] == 0) ? 4'b0011 : 4'b0101;
 assign L2_adder_data2[7:4] = (c0 == 0) ? 4'b0011 : 4'b0101;
-
 
 Glue_Lab2 Glue_Lab2 (
   .Gl_r11(Gl_r11),
@@ -178,296 +182,162 @@ module fourBitAdderSubstractor(
 
 endmodule
 
+// _Lab2
+// glue logic for lab 2
+//
+// we capture 4 8 bit values
+// Gl_r11, Gl_r12, Gl_r21, and Gl_r22
+// we capture an operation (either add or subtract)
+// finally we generate a start pulse - Gl_adder_start which lasts for one cycle
+//
+module Glue_Lab2(
+  output reg [7:0]  Gl_r11,
+  output reg [7:0]  Gl_r12,
+  output reg [7:0]  Gl_r21,
+  output reg [7:0]  Gl_r22,
+  output wire 	   Gl_subtract,
+  output wire 	   Gl_adder_start,
+
+  // from uart
+  input [7:0] 	   bu_rx_data,
+  input 		   bu_rx_data_rdy,
+  input             bu_tx_busy, 		   
+
+  // from DUT
+  input [7:0] 	   L2_adder_data1,
+  input 		   L2_adder_rdy,
+  input [7:0] 	   L2_adder_data2,
+  // to uart
+  output reg [7:0]  Gl_tx_data,
+  output reg 	   Gl_tx_data_rdy,
+
+
+  output reg 	   Gl_rst, // internal reset
+
+  // LED interface
+  input [7:0] 	   L2_led, // from DUT
+  output wire [4:0] led,
+  input 		   tb_sim_rst,
+  input 		   clk
+);
+
+
+
+wire i_rst_char_detected;      // reset character is 0x1B  (ESC)
+wire is_hexplus;               // 0-9:;<=>? abcdef
+wire is_pn;			  // plus, minus
+
+decodeKeys de0 (
+  .de_esc(i_rst_char_detected),
+  .de_hexplus(is_hexplus),
+  .de_pn(is_pn),
+  .charData(bu_rx_data),
+  .charDataValid(bu_rx_data_rdy)	   
+);
+
+wire 			   enR11;     // enable first byte of R1 register
+wire 			   enR12;     // enable second byte of R1 register
+wire 			   enR21;     // enable first byte of R2 register
+wire 			   enR22;     // enable second byte of R2 register
+wire 			   enOp;     // enable OP register
+
+gl_fsm gl_fsm(
+  .enR11(enR11),
+  .enR12(enR12),
+  .enR21(enR21),
+  .enR22(enR22),
+  .enOp(enOp),
+  .Gl_adder_start(Gl_adder_start),
+  .bu_tx_busy(bu_tx_busy),
+  .validInput(is_hexplus),
+  .validOp(is_pn),
+  .clk(clk),
+  .Gl_rst(Gl_rst)
+  `ifdef HW
+  `else
+    ,.tb_sim_rst(tb_sim_rst)
+  `endif
+  );
+
+
+
+  reg [7:0] 		   Gl_Op;     // save glue op
+
+
+  // -----------------------------
+  // datapath - save operands
+  //
+  //
+  wire dp_rst = Gl_rst | tb_sim_rst;
+
+  always @(posedge clk) begin
+    if (enR11 | dp_rst)
+      Gl_r11 <= dp_rst ? 8'b0 : bu_rx_data;
+    else
+      Gl_r11 <= Gl_r11;
+
+    if (enR12 | dp_rst)
+      Gl_r12 <= dp_rst ? 8'b0 : bu_rx_data;
+    else
+      Gl_r12 <= Gl_r12;
+
+    if (enR21 | dp_rst)
+      Gl_r21 <= dp_rst ? 8'b0 : bu_rx_data;
+    else
+      Gl_r21 <= Gl_r21;
+
+    if (enR22 | dp_rst )
+      Gl_r22 <= dp_rst ? 8'b0 : bu_rx_data;
+    else
+      Gl_r22 <= Gl_r22;
+
+    if (enOp | dp_rst )
+      Gl_Op <= dp_rst ? 8'b0 : bu_rx_data;
+    else
+      Gl_Op <= Gl_Op;
+  end
+
+  // decode Gl_Op (+ or -)
+  // 
+  assign Gl_subtract = (Gl_Op == "-") ? 1 : 0;
+
+  sigDelay  sig(L2_adder_rdy2, Gl_adder_rdy, clk, Gl_rst);
 
   //
-  // gl_fsm
+  // transmit uart
+  // echo input characters and output from adder
   //
-  // 4 state state machine.
-  // we capture 3 characters if they are legal.
-  // illegal characters are ignored and the state machine stays
-  // put.
+  always @(posedge clk) begin
+    Gl_tx_data <= is_hexplus ? bu_rx_data : L2_adder_rdy ? L2_adder_data1 : L2_adder_data2;
+    Gl_tx_data_rdy <= is_hexplus | L2_adder_rdy | L2_adder_rdy2;
+  end
+
   //
-  module gl_fsm(
-    output reg enR11, // load first byte of r1
-    output reg enR12, // load second byte of r1
-    output reg enR21, // load first byte of r2
-    output reg enR22, // load second byte of r2
-    output reg enOp, // load op
-    output reg Gl_adder_start,
-    input validInput,
-    input validOp,
-    input bu_tx_busy,
-    input clk,
-    input Gl_rst
-    `ifdef HW
-    `else
-      ,tb_sim_rst
-    `endif
-    );
-
-    reg [2:0] 	       state;
-    reg [2:0] 	       nxtState;
-
-    localparam IDLE = 3'b000, GOTR11 = 3'b001, GOTR12 = 3'b010, 
-      GOTR21 = 3'b100, GOTR22 = 3'b101, DOOP = 3'b110;
-
-
-    always @(*) begin
-      enR11 = 1'b0;
-      enR12 = 1'b0;
-      enR21 = 1'b0;
-      enR22 = 1'b0;
-      enOp = 1'b0;
-      Gl_adder_start = 1'b0;
-      case (state)
-        IDLE: 
-        begin
-          if (validInput) begin
-            nxtState = GOTR11;
-            enR11 = 1'b1;
-          end
-          else
-            nxtState = IDLE;
-        end
-        GOTR11:
-        begin
-          if (validInput) begin
-            nxtState = GOTR12;
-            enR12 = 1'b1;
-          end
-          else
-            nxtState = GOTR11;
-        end
-        GOTR12:
-        begin
-          if (validInput) begin
-            nxtState = GOTR21;
-            enR21 = 1'b1;
-          end
-          else
-            nxtState = GOTR12;
-        end
-        GOTR21:
-        begin
-          if (validInput) begin
-            nxtState = GOTR22;
-            enR22 = 1'b1;
-          end
-          else
-            nxtState = GOTR21;
-        end
-        GOTR22:
-        begin
-          if (validOp) begin
-            nxtState = DOOP;
-            enOp = 1'b1;
-          end
-          else
-            nxtState = GOTR22;
-        end
-        DOOP:
-        begin
-          nxtState = IDLE;
-          Gl_adder_start = 1;
-        end
-      endcase // case (state)
-    end // always @ (*)
-
-    always @(posedge clk) begin
-      if (Gl_rst) begin
-        state <= IDLE;
+  // reset generator
+  //    
+  reg [4:0] reset_count;
+  always @(posedge clk) begin
+    if (tb_sim_rst) begin
+      reset_count <= 5'b0000;
+    end
+    else begin
+      if (i_rst_char_detected) begin
+        reset_count <= 5'b0000;
+        Gl_rst <= 1;
       end
       else begin
-        state <= nxtState;
+        if (~reset_count[4]) begin
+          reset_count <= reset_count + 1;
+          Gl_rst <= 1;
+        end
+        else begin
+          reset_count <= reset_count;
+          Gl_rst <= 0;
+        end
       end
-    end      
-    endmodule
+    end // else: !if(tb_sim_rst)
+  end // always @ (posedge clk_in)
 
 
-        // _Lab2
-    // glue logic for lab 2
-    //
-    // we capture 4 8 bit values
-    // Gl_r11, Gl_r12, Gl_r21, and Gl_r22
-    // we capture an operation (either add or subtract)
-    // finally we generate a start pulse - Gl_adder_start which lasts for one cycle
-    //
-    module Glue_Lab2(
-      output reg [7:0]  Gl_r11,
-      output reg [7:0]  Gl_r12,
-      output reg [7:0]  Gl_r21,
-      output reg [7:0]  Gl_r22,
-      output wire 	   Gl_subtract,
-      output wire 	   Gl_adder_start,
-
-      // from uart
-      input [7:0] 	   bu_rx_data,
-      input 		   bu_rx_data_rdy,
-      input             bu_tx_busy, 		   
-
-      // from DUT
-      input [7:0] 	   L2_adder_data1,
-      input [7:0] 	   L2_adder_data2,
-      input 		   L2_adder_rdy,
-      // to uart
-      output wire [7:0]  Gl_tx_data,
-      output wire 	   Gl_tx_data_rdy,
-
-
-      output reg 	   Gl_rst, // internal reset
-
-      // LED interface
-      input [7:0] 	   L2_led, // from DUT
-      output wire [4:0] led,
-      input 		   tb_sim_rst,
-      input 		   clk
-      );
-
-
-
-      wire i_rst_char_detected;      // reset character is 0x1B  (ESC)
-      wire is_hexplus;               // 0-9:;<=>? abcdef
-      wire is_pn;			  // plus, minus
-
-      decodeKeys de0 (
-        .de_esc(i_rst_char_detected),
-        .de_hexplus(is_hexplus),
-        .de_pn(is_pn),
-        .charData(bu_rx_data),
-        .charDataValid(bu_rx_data_rdy)	   
-      );
-
-      wire 			   enR11;     // enable first byte of R1 register
-      wire 			   enR12;     // enable second byte of R1 register
-      wire 			   enR21;     // enable first byte of R2 register
-      wire 			   enR22;     // enable second byte of R2 register
-      wire 			   enOp;     // enable OP register
-
-      gl_fsm gl_fsm(
-        .enR11(enR11),
-        .enR12(enR12),
-        .enR21(enR21),
-        .enR22(enR22),
-        .enOp(enOp),
-        .Gl_adder_start(Gl_adder_start),
-        .bu_tx_busy(bu_tx_busy),
-        .validInput(is_hexplus),
-        .validOp(is_pn),
-        .clk(clk),
-        .Gl_rst(Gl_rst)
-        `ifdef HW
-        `else
-          ,.tb_sim_rst(tb_sim_rst)
-        `endif
-        );
-
-
-
-        reg [7:0] 		   Gl_Op;     // save glue op
-
-
-        // -----------------------------
-        // datapath - save operands
-        //
-        //
-        wire dp_rst = Gl_rst | tb_sim_rst;
-
-        always @(posedge clk) begin
-          if (enR11 | dp_rst)
-            Gl_r11 <= dp_rst ? 8'b0 : bu_rx_data;
-          else
-            Gl_r11 <= Gl_r11;
-
-          if (enR12 | dp_rst)
-            Gl_r12 <= dp_rst ? 8'b0 : bu_rx_data;
-          else
-            Gl_r12 <= Gl_r12;
-
-          if (enR21 | dp_rst)
-            Gl_r21 <= dp_rst ? 8'b0 : bu_rx_data;
-          else
-            Gl_r21 <= Gl_r21;
-
-          if (enR22 | dp_rst )
-            Gl_r22 <= dp_rst ? 8'b0 : bu_rx_data;
-          else
-            Gl_r22 <= Gl_r22;
-
-          if (enOp | dp_rst )
-            Gl_Op <= dp_rst ? 8'b0 : bu_rx_data;
-          else
-            Gl_Op <= Gl_Op;
-        end
-
-        // decode Gl_Op (+ or -)
-        // 
-        assign Gl_subtract = (Gl_Op == "-") ? 1 : 0;
-
-
-        reg p1;
-        reg p2;
-
-        always @(posedge clk) begin
-          if ( L2_adder_rdy == 1'b1)
-            p1 <= 1'b1;
-          else
-            p1 <= 1'b0;
-        end
-     
-        always @(posedge clk) begin
-          if ( p1 == 1'b1)
-            p2 <= 1'b1;
-          else
-            p2 <= 1'b0;
-        end
-
-
-        dispString uds(
-          .rdy(Gl_tx_data_rdy),
-          .dOut(Gl_tx_data),
-
-          .b0(L2_adder_data1),
-          .b1(L2_adder_data2),
-          .go(p1 | p2),
-          .rst(rst),      
-          .clk(clk)       
-        ); 
-        //
-        // transmit uart
-        // echo input characters and output from adder
-        //
-        /*
-        always @(posedge clk) begin
-          Gl_tx_data <= is_hexplus ? bu_rx_data : L2_adder_rdy2 ? L2_adder_data1 : L2_adder_data2;
-          Gl_tx_data_rdy <= is_hexplus | L2_adder_rdy1 | L2_adder_rdy2;
-        end
-*/
-        //
-        // reset generator
-        //    
-        reg [4:0] reset_count;
-        always @(posedge clk) begin
-          if (tb_sim_rst) begin
-            reset_count <= 5'b0000;
-          end
-          else begin
-            if (i_rst_char_detected) begin
-              reset_count <= 5'b0000;
-              Gl_rst <= 1;
-            end
-            else begin
-              if (~reset_count[4]) begin
-                reset_count <= reset_count + 1;
-                Gl_rst <= 1;
-              end
-              else begin
-                reset_count <= reset_count;
-                Gl_rst <= 0;
-              end
-            end
-          end // else: !if(tb_sim_rst)
-        end // always @ (posedge clk_in)
-
-
-        endmodule
+  endmodule
 
